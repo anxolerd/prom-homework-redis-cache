@@ -1,5 +1,6 @@
 from wsgiref.simple_server import make_server
 from example_server import simple_app
+from cgi import parse_qs
 import redis
 import pickle
 
@@ -11,7 +12,10 @@ REDIS = redis.Redis(connection_pool=POOL)
 def cache(app, _cache=dict()):
 
     def wrapped_app(environ, start_response):
-        key_base = environ['PATH_INFO'] + '?' + environ['QUERY_STRING']
+        parameters = parse_qs(environ.get('QUERY_STRING', ''))
+        need_new = parameters.pop('cached', [])
+        need_new = map(lambda x: x.lower(), need_new)
+        key_base = environ['PATH_INFO'] + '?' + pickle.dumps(parameters)
         key_data = "DATA:%s" % key_base
         key_headers = "HEADERS:%s" % key_base
         key_status = "STATUS:%s" % key_base
@@ -20,7 +24,10 @@ def cache(app, _cache=dict()):
             REDIS.get(key_headers),
             REDIS.get(key_status),
         )
-        if (not data or not headers or not status):
+
+        # Need better naming
+        need_new = True if 'false' in need_new else False
+        if (not (data or headers or status) or need_new):
             data = app(environ, start_response)
             headers = start_response.im_self.headers._headers
             status = start_response.im_self.status
