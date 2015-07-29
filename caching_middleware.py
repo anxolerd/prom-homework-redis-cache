@@ -26,7 +26,7 @@ def cache(app, _cache=dict()):
         )
 
         # Need better naming
-        need_new = True if 'false' in need_new else False
+        need_new = 'false' in need_new
         if (not (data or headers or status) or need_new):
             data = app(environ, start_response)
             headers = start_response.im_self.headers._headers
